@@ -42,7 +42,7 @@ def commit_query(query,result):
     return values
 
 # Run the file: python "e:/main.py" username password [optional] server_address database_name
-# Example: python "e:/main.py"postgres pwd [localhost postgres]
+# Example: python "e:/main.py" postgres pwd [localhost postgres]
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Database Credentials")
     parser.add_argument("database_username", help="Database Authentication Username")
