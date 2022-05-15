@@ -3,11 +3,11 @@ import subprocess
 from importlib import util
 
 phi = {"S" : [],
-       "n" : [],
+       "n" : "",
        "V" : [],
        "F" : [],
        "sig" : [],
-       "G" : []
+       "G" : ""
 }
 python = sys.executable
 
@@ -32,13 +32,16 @@ def getPhiValues(txt_file):
             count += 1
         elif line.strip():
             for i in line.strip().split(","):
-                try:
                     if keys[count] == "n":
+                        if not i.strip().isdigit():
+                            raise ValueError(f"Number of Grouping Variables has to be an integer!")
                         phi[keys[count]] = int(i.strip())
+                    elif keys[count] == "G":
+                        if phi[keys[count]]: 
+                            raise ValueError(f"Only one string allowed for having clause!")
+                        phi[keys[count]] = i.strip()
                     else:    
                         phi[keys[count]].append(i.strip())
-                except:
-                    raise ValueError(f"Invalid input for {keys[count]}")
                 
 # Print out Phi to see            
 def printPhi():
@@ -47,7 +50,7 @@ def printPhi():
     
 if __name__ == "__main__":
     # Installs and imports the modules    
-    required = {'psycopg2', 'numpy', 'pandas'}
+    required = {'psycopg2', 'pandas'}
     for i in required: checkModule(i)  
     
     txt_file = 'phiOperator.txt'
