@@ -1,13 +1,12 @@
 import psycopg2
-import numpy as np
 import pandas as pd
 import argparse
-
 
 DATABASE_USERNAME = ""
 DATABASE_PASSWORD = ""
 DATABASE_SERVER = "localhost"
 DATABASE_NAME = "postgres"
+code_file = "code.py"
 
 # Establishes a connection to the database using psycopg2 and returns the values of the query
 def commit_query(query,result):
@@ -61,6 +60,8 @@ if __name__ == "__main__":
     
     df = pd.DataFrame(values, columns=[col[0] for col in cols])
     print(df.head())
+    df.to_csv("sales.csv")
+    exec(open(code_file).read())
 
 
         
