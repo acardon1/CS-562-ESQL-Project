@@ -43,6 +43,24 @@ def getPhiValues(txt_file):
                         phi[keys[count]] = i.strip()
                     else:    
                         phi[keys[count]].append(i.strip())
+
+# Gets the user input instead of reading txt file                       
+def getUserInput():
+    val = input("Enter all the Select Attributes (S) separated with commas: ")
+    phi["S"] = [i.strip() for i in val.split(",")]
+    val = input("Enter the number of grouping variables: ")
+    while not val.isdigit():
+        val = input("Invalid Input! Enter the number of grouping variables: ")
+    phi["n"] = val
+    val = input("Enter all the Grouping Attributes (V) separated with commas: ")
+    phi["V"] = [i.strip() for i in val.split(",")]  
+    val = input("Enter all the aggregate functions ([F]) separated with commas: ")
+    phi["F"] = [i.strip() for i in val.split(",")]
+    for i in range(int(phi['n'])):
+        val = input(f"Enter the condition vector for grouping variable #{i+1}: ")
+        phi["sig"].append(val.strip())
+    val = input("Enter the having condition (G): ")
+    phi["G"] = val
                 
 # Print out Phi to see            
 def printPhi():
@@ -230,5 +248,14 @@ if __name__ == "__main__":
     for i in required: checkModule(i)  
     
     txt_file = 'phiOperator.txt'
-    getPhiValues(txt_file)
+    option = input(f"Do you want to read from {txt_file}? [Y/N] ")
+    while True:
+        if option in {"y","Y","yes","Yes"}:
+            getPhiValues(txt_file)
+            break
+        elif option in {"n","N","no","No"}:
+            getUserInput()
+            break
+        else:
+            option = input(f"Invalid Input! Do you want to read from {txt_file}? [Y/N] ")
     printPhi()
