@@ -153,7 +153,7 @@ for i in range(phi['n'] + 1):
             key = key[:-1]
             if key not in MF_Struct.keys():
                 for groupAttribute in phi['V']:
-                    colVal = row[Attributes[groupingAttribute]]
+                    colVal = row[Attributes[groupAttribute]]
                     if colVal:
                         value[groupAttribute] = colVal
                 for agg in phi["F"]:
