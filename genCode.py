@@ -1,6 +1,5 @@
 import sys
 import subprocess
-from tokenize import group
 from importlib import util
 import os
 
@@ -44,6 +43,10 @@ def getPhiValues(txt_file):
                         phi[keys[count]] = i.strip()
                     else:    
                         phi[keys[count]].append(i.strip())
+    if len(phi["sig"]) > phi["n"]:
+        raise ValueError("More conditional vectors than grouping variables")
+    elif len(phi["sig"]) < phi["n"]:
+        raise ValueError("There are unused grouping variables!")
     with open('query_output.py', 'a') as mfQueryFile:
         mfQueryFile.write("phi =")
         mfQueryFile.write(str(phi))
@@ -104,7 +107,6 @@ def commit_query(query,result):
             connection.close() 
         exit()
     return values
-
 # Run the file: python "e:/main.py" username password [optional] server_address database_name
 # Example: python "e:/main.py" postgres pwd [localhost postgres]
 parser = argparse.ArgumentParser(description="Database Credentials")
@@ -113,19 +115,14 @@ parser.add_argument("database_password", help="Database Authentication Password"
 parser.add_argument("-s", "--server_address", help="Database Server Address")
 parser.add_argument("-d", "--database_name", help="Database Name")
 args = parser.parse_args()
-
 DATABASE_USERNAME = args.database_username
 DATABASE_PASSWORD = args.database_password
-
 if args.server_address:
     DATABASE_SERVER = args.server_address
-
 if args.database_name:
     DATABASE_NAME = args.database_name
-
 # Gets all the rows from the sales database by running the query below
 values = commit_query("SELECT * from sales", "Getting all entries in sales table")
-
 Attributes = {
     'cust' : 0,
     'prod' : 1,
@@ -136,13 +133,15 @@ Attributes = {
     'quant' : 6
 }
 MF_Struct = {}
-#will be used for setting up grouping variables
+
+# Will be used for setting up grouping variables
 predParts = [] #list of each predicate's parts in 2d array
 for i in phi['sig']:
     predParts.append(i.split(' '))
-#loop through table for each grouping variable
+    
+# Loop through table for each grouping variable
 for i in range(phi['n'] + 1):
-    #grouping variable 0 (set up the group)
+    # Grouping variable 0 (set up the group)
     if (i == 0):
         for row in values:
             key = ''
@@ -180,7 +179,7 @@ for i in range(phi['n'] + 1):
                         else: #recalc max
                             if (row[Attributes[groupingAttribute]] > MF_Struct[key][agg]):
                                 MF_Struct[key][agg] = row[Attributes[groupingAttribute]]
-    else: #setting up each grouping variable in mf_struct
+    else: # Setting up each grouping variable in mf_struct
         for agg in phi['F']:
             if (len(agg.split('_')) == 2):
                 continue
@@ -188,11 +187,13 @@ for i in range(phi['n'] + 1):
             aggregateFunc = agg.split('_')[1]
             groupingAttribute = agg.split('_')[2]
             if (i == int(groupingVariable)):
+            
                 for row in values:
                     key = ''
                     for attribute in phi['V']:
                         key += f'{str(row[Attributes[attribute]])}'
-                    #using strings with eval() method, replace grouping variables with actual values
+                    # Using strings with eval() method, replace grouping variables with actual values
+                    
                     if aggregateFunc == 'sum':
                         evalString = phi['sig'][i-1]
                         for s in predParts[i-1]:
@@ -277,17 +278,19 @@ for i in range(phi['n'] + 1):
                                 evalString = evalString.replace(groupAttr, f"'{str(row[Attributes[groupAttr]])}'")
                         if eval(evalString.replace('=', '==')):
                             MF_Struct[key][agg] += 1
-#set up output
+
+# Setting up output
 df = pd.DataFrame(None, None, phi['S'])
 outputRow = ''
-#every row in the MF_Struct should rows for all grouping vars + 1 bc group 0
-#each row has columns initialized for its aggregates
+# Every row in the MF_Struct should rows for all grouping vars + 1 bc group 0
+# Each row has columns initialized for its aggregates
+
 for row in MF_Struct: #checking having condition AND doing output
     evalString = ''
-    if phi['G'] != '': #having condition exists
+    if phi['G'] != '': # Having condition exists
         for s in phi['G'].split(' '):
             if s not in ['>', '>=', '<', '<=', '==', 'and', 'or', 'not', '*', '/', '+', '-']:
-                try: #is number?
+                try: # Is number?
                     float(s)
                     evalString += s
                 except: #is an aggregate
@@ -307,7 +310,9 @@ for row in MF_Struct: #checking having condition AND doing output
             df.loc[len(df)] = output_info
             output_info = ''
         evalString = ''
-    else: #no having condition -> only output
+
+    else: # No having condition -> only output
+
         output_info = []
         for elem in phi['S']:
             if ((len(elem.split('_')) > 1) and (elem.split('_')[1] == 'avg' or elem.split('_')[0] == 'avg')):
@@ -317,6 +322,7 @@ for row in MF_Struct: #checking having condition AND doing output
         df.loc[len(df)] = output_info
         output_info = ''
 print(df.to_string(index=False))
+df.to_csv("result.csv")
 """
 
 def mf_query():
@@ -333,9 +339,12 @@ if __name__ == "__main__":
         os.remove("query_output.py")
   
     txt_file = 'phiOperator.txt'
-    option = input(f"Do you want to read from {txt_file}? [Y/N] ")
+    option = input(f"Do you want to read from text file? [Y/N] ")
     while True:
         if option in {"y","Y","yes","Yes"}:
+            while not os.path.exists(txt_file):
+                txt_file = input(f"""Cannot find phiOperator.txt file in current directory. 
+                                    Please enter the file location: """)
             getPhiValues(txt_file)
             break
         elif option in {"n","N","no","No"}:
