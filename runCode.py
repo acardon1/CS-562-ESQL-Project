@@ -6,7 +6,7 @@ DATABASE_USERNAME = ""
 DATABASE_PASSWORD = ""
 DATABASE_SERVER = "localhost"
 DATABASE_NAME = "postgres"
-code_file = "code.py"
+code_file = "query_output.py"
 
 # Establishes a connection to the database using psycopg2 and returns the values of the query
 def commit_query(query,result):

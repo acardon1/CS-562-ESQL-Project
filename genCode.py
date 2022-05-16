@@ -66,15 +66,18 @@ def getUserInput():
         phi["sig"].append(val.strip())
     val = input("Enter the having condition (G): ")
     phi["G"] = val
+    with open('query_output.py', 'a') as mfQueryFile:
+        mfQueryFile.write("phi =")
+        mfQueryFile.write(str(phi))
+        mfQueryFile.write("\n")
+        mfQueryFile.close()
                 
 # Print out Phi to see            
 def printPhi():
     for i in phi.items():
         print(f"{i[0]} : {i[1]}")
 
-mf_algo ="""
-#add imports and somehow send values and phi into this code
-#needs values and phi
+mf_algo = """
 Attributes = {
     'cust' : 0,
     'prod' : 1,
