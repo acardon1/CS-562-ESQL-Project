@@ -150,7 +150,6 @@ for i in range(phi['n'] + 1):
             value = {}
             for attribute in phi['V']:
                 key += f'{str(row[Attributes[attribute]])}'
-            key = key[:-1]
             if key not in MF_Struct.keys():
                 for groupAttribute in phi['V']:
                     colVal = row[Attributes[groupAttribute]]
@@ -175,19 +174,19 @@ for i in range(phi['n'] + 1):
                     key = ''
                     for attribute in phi['V']:
                         key += f'{str(row[Attributes[attribute]])}'
-                    key = key[:-1]
                     #using strings with eval() method, replace grouping variables with actual values
                     if aggregateFunc == 'sum':
                         evalString = phi['sig'][i-1]
                         for s in predParts[i-1]:
-                            if ((len(s.split('.')) > 1) and (s.split('.')[0] == str(i))):
+                            if ((len(s.split('.')) > 1) and (s.split('.')[0] == str(i))): #changing 1.var
                                 val = row[Attributes[s.split('.')[1]]]
                                 try:
                                     int(val)
                                     evalString = evalString.replace(s, str(val))
                                 except:
-                                    evalString = evalString.replace(s, f"'{val}")
-                        if eval(evalString.replace('=', '==')):#recalc sum
+                                    evalString = evalString.replace(s, f"'{val}'")
+                        evalString = evalString.replace('cust', f"'{str(row[Attributes['cust']])}'")
+                        if eval(evalString.replace('=', '==')): #recalc sum
                             sum = int(row[Attributes[groupingAttribute]])
                             MF_Struct[key][agg] += sum
                     elif aggregateFunc == 'avg':
@@ -201,7 +200,8 @@ for i in range(phi['n'] + 1):
                                     int(val)
                                     evalString = evalString.replace(s, str(val))
                                 except:
-                                    evalString = evalString.replace(s, f"'{val}")
+                                    evalString = evalString.replace(s, f"'{val}'")
+                        evalString = evalString.replace('cust', f"'{str(row[Attributes['cust']])}'")
                         if eval(evalString.replace('=', '==')):#recalc avg
                             sum += int(row[Attributes[groupingAttribute]])
                             count += 1
@@ -215,7 +215,8 @@ for i in range(phi['n'] + 1):
                                     int(val)
                                     evalString = evalString.replace(s, str(val))
                                 except:
-                                    evalString = evalString.replace(s, f"'{val}")
+                                    evalString = evalString.replace(s, f"'{val}'")
+                        evalString = evalString.replace('cust', f"'{str(row[Attributes['cust']])}'")
                         if eval(evalString.replace('=', '==')):#recalc min
                             min = int(MF_Struct[key][agg])
                             if (int(row[Attributes[groupingAttribute]]) < min):
@@ -229,7 +230,8 @@ for i in range(phi['n'] + 1):
                                     int(val)
                                     evalString = evalString.replace(s, str(val))
                                 except:
-                                    evalString = evalString.replace(s, f"'{val}")
+                                    evalString = evalString.replace(s, f"'{val}'")
+                        evalString = evalString.replace('cust', f"'{str(row[Attributes['cust']])}'")
                         if eval(evalString.replace('=', '==')):
                             max = int(MF_Struct[key][agg])
                             if (int(row[Attributes[groupingAttribute]]) > max):
@@ -243,7 +245,8 @@ for i in range(phi['n'] + 1):
                                     int(val)
                                     evalString = evalString.replace(s, str(val))
                                 except:
-                                    evalString = evalString.replace(s, f"'{val}")
+                                    evalString = evalString.replace(s, f"'{val}'")
+                        evalString = evalString.replace('cust', f"'{str(row[Attributes['cust']])}'")
                         if eval(evalString.replace('=', '==')):
                             MF_Struct[key][agg] += 1
 #set up output
@@ -260,7 +263,7 @@ for row in MF_Struct: #checking having condition AND doing output
         for s in phi['G'].split(' '):
             if s not in ['>', '>=', '<', '<=', '==', 'and', 'or', 'not', '*', '/', '+', '-']:
                 try: #is number?
-                    int(s)
+                    float(s)
                     evalString += s
                 except: #is an aggregate
                     if ((len(s.split('_')) > 1) and (s.split('_')[1] == 'avg')):
@@ -268,30 +271,38 @@ for row in MF_Struct: #checking having condition AND doing output
                     else:
                         evalString += str(MF_Struct[row][s])
             else: #is operator for comparison
-                evalString += f' {s}'
+                evalString += f' {s} '
         if (eval(evalString.replace('=', '=='))):
             output_info = []
             for elem in phi['S']:
                 if ((len(elem.split('_')) > 1) and (elem.split('_')[1] == 'avg')):
-                    output_info += [str(MF_Struct[row][elem]['avg'])]
+                    output_info += [MF_Struct[row][elem]['avg']]
                 else:
-                    output_info += [str(MF_Struct[row][elem])]
-            for elem in phi['S']:
-                outputRow += elem + "\t"
+                    output_info += [MF_Struct[row][elem]]
+            for i in range(len(output_info)):
+                if i > 0:
+                    outputRow += str(output_info[i]) + "\t\t"
+                else:
+                    outputRow += str(output_info[i]) + "\t"
             print(outputRow)
             outputRow = ''
+            output_info = ''
         evalString = ''
-    else:
+    else: #no having condition -> only output
         output_info = []
         for elem in phi['S']:
             if ((len(elem.split('_')) > 1) and (elem.split('_')[1] == 'avg')):
                 output_info += [str(MF_Struct[row][elem]['avg'])]
             else:
                 output_info += [str(MF_Struct[row][elem])]
-        for elem in phi['S']:
-            outputRow += elem + "\t"
+        for i in range(len(output_info)):
+            if i > 0:
+                outputRow += str(output_info[i]) + "\t\t"
+            else:
+                outputRow += str(output_info[i]) + "\t"
         print(outputRow)
         outputRow = ''
+        output_info = ''
 """
 
 def mf_query():
@@ -301,8 +312,8 @@ def mf_query():
     
 if __name__ == "__main__":
     # Installs and imports the modules    
-    required = {'psycopg2', 'pandas'}
-    for i in required: checkModule(i)  
+    #required = {'psycopg2', 'pandas'}
+    #for i in required: checkModule(i)  
     
     if os.path.exists("query_output.py"):
         os.remove("query_output.py")
