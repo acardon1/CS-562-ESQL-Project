@@ -49,7 +49,7 @@ def printPhi():
     for i in phi.items():
         print(f"{i[0]} : {i[1]}")
 
-
+mf_algo ="""
 #add imports and somehow send values and phi into this code
 #needs values and phi
 Attributes = {
@@ -217,6 +217,7 @@ for row in MF_Struct: #checking having condition AND doing output
             outputRow += elem + "\t"
         print(outputRow)
         outputRow = ''
+"""
 
 def mf_query():
     with open('query_output.py', 'a') as mfQueryFile:
