@@ -1,6 +1,5 @@
 import sys
 import subprocess
-from tokenize import group
 from importlib import util
 import os
 
@@ -44,6 +43,10 @@ def getPhiValues(txt_file):
                         phi[keys[count]] = i.strip()
                     else:    
                         phi[keys[count]].append(i.strip())
+    if len(phi["sig"]) > phi["n"]:
+        raise ValueError("More conditional vectors than grouping variables")
+    elif len(phi["sig"]) < phi["n"]:
+        raise ValueError("There are unused grouping variables!")
     with open('query_output.py', 'a') as mfQueryFile:
         mfQueryFile.write("phi =")
         mfQueryFile.write(str(phi))
@@ -74,16 +77,13 @@ def printPhi():
         print(f"{i[0]} : {i[1]}")
 
 mf_algo ="""
-#add imports and somehow send values and phi into this code
 import psycopg2
 import argparse
-
+import pandas as pd
 DATABASE_USERNAME = ""
 DATABASE_PASSWORD = ""
 DATABASE_SERVER = "localhost"
 DATABASE_NAME = "postgres"
-code_file = "code.py"
-
 # Establishes a connection to the database using psycopg2 and returns the values of the query
 def commit_query(query,result):
     values = None
@@ -105,7 +105,6 @@ def commit_query(query,result):
             connection.close() 
         exit()
     return values
-
 # Run the file: python "e:/main.py" username password [optional] server_address database_name
 # Example: python "e:/main.py" postgres pwd [localhost postgres]
 parser = argparse.ArgumentParser(description="Database Credentials")
@@ -114,80 +113,97 @@ parser.add_argument("database_password", help="Database Authentication Password"
 parser.add_argument("-s", "--server_address", help="Database Server Address")
 parser.add_argument("-d", "--database_name", help="Database Name")
 args = parser.parse_args()
-
 DATABASE_USERNAME = args.database_username
 DATABASE_PASSWORD = args.database_password
-
 if args.server_address:
     DATABASE_SERVER = args.server_address
-
 if args.database_name:
     DATABASE_NAME = args.database_name
-
 # Gets all the rows from the sales database by running the query below
 values = commit_query("SELECT * from sales", "Getting all entries in sales table")
-
 Attributes = {
     'cust' : 0,
     'prod' : 1,
     'day' : 2,
-    'mo' : 3,
+    'month' : 3,
     'year' : 4,
     'state' : 5,
     'quant' : 6
 }
 MF_Struct = {}
-#will be used for setting up grouping variables
+
+# Will be used for setting up grouping variables
 predParts = [] #list of each predicate's parts in 2d array
 for i in phi['sig']:
     predParts.append(i.split(' '))
-#loop through table for each grouping variable
+    
+# Loop through table for each grouping variable
 for i in range(phi['n'] + 1):
-    #grouping variable 0 (set up the group)
+    # Grouping variable 0 (set up the group)
     if (i == 0):
         for row in values:
             key = ''
             value = {}
             for attribute in phi['V']:
                 key += f'{str(row[Attributes[attribute]])}'
-            key = key[:-1]
             if key not in MF_Struct.keys():
                 for groupAttribute in phi['V']:
-                    colVal = row[groupAttribute]
+                    colVal = row[Attributes[groupAttribute]]
                     if colVal:
                         value[groupAttribute] = colVal
                 for agg in phi["F"]:
-                    if (agg.split('_')[1] == 'avg'):
+                    if (agg.split('_')[1] == 'avg' or agg.split('_')[0] == 'avg'):
                         value[agg] = {'sum': 0, 'count': 0, 'avg': 0} #use sum and count to help calculate avg
-                    elif (agg.split('_')[1] == 'min'):
+                    elif (agg.split('_')[1] == 'min' or agg.split('_')[0] == 'min'):
                         value[agg] = 9999 #set default to 9999, since > all possible quants, for min
                     else:
                         value[agg] = 0 #otherwise max, count, sum are 0 by default
                 MF_Struct[key] = value
-    else: #setting up each grouping variable in mf_struct
+            else:
+                for agg in phi["F"]:
+                    groupingAttribute = agg.split('_')[1]
+                    if (len(agg.split('_')) == 2):
+                        if (agg.split('_')[0] == 'sum'): #recalc sum
+                            MF_Struct[key][agg] += int(row[Attributes[groupingAttribute]])
+                        elif (agg.split('_')[0] == 'count'): #increment count
+                            MF_Struct[key][agg] += 1
+                        elif (agg.split('_')[0] == 'min'): #recalc min
+                            if (row[Attributes[groupingAttribute]] < MF_Struct[key][agg]):
+                                MF_Struct[key][agg] = int(row[Attributes[groupingAttribute]])
+                        elif (agg.split('_')[0] == 'avg'): #recalc avg
+                            newSum = MF_Struct[key][agg]['sum'] + int(row[Attributes[groupingAttribute]])
+                            newCount = MF_Struct[key][agg]['count'] + 1
+                            MF_Struct[key][agg] = {'sum': newSum, 'count': newCount, 'avg': newSum/newCount}
+                        else: #recalc max
+                            if (row[Attributes[groupingAttribute]] > MF_Struct[key][agg]):
+                                MF_Struct[key][agg] = row[Attributes[groupingAttribute]]
+    else: # Setting up each grouping variable in mf_struct
         for agg in phi['F']:
+            if (len(agg.split('_')) == 2):
+                continue
             groupingVariable = agg.split('_')[0]
             aggregateFunc = agg.split('_')[1]
             groupingAttribute = agg.split('_')[2]
-            
             if (i == int(groupingVariable)):
                 for row in values:
                     key = ''
                     for attribute in phi['V']:
                         key += f'{str(row[Attributes[attribute]])}'
-                    key = key[:-1]
-                    #using strings with eval() method, replace grouping variables with actual values
+                    # Using strings with eval() method, replace grouping variables with actual values
                     if aggregateFunc == 'sum':
                         evalString = phi['sig'][i-1]
                         for s in predParts[i-1]:
-                            if ((len(s.split('.')) > 1) and (s.split('.')[0] == str(i))):
+                            if ((len(s.split('.')) > 1) and (s.split('.')[0] == str(i))): #changing 1.var
                                 val = row[Attributes[s.split('.')[1]]]
                                 try:
                                     int(val)
                                     evalString = evalString.replace(s, str(val))
                                 except:
-                                    evalString = evalString.replace(s, f"'{val}")
-                        if eval(evalString.replace('=', '==')):#recalc sum
+                                    evalString = evalString.replace(s, f"'{val}'")
+                        for groupAttr in Attributes:
+                            if (groupAttr in evalString):
+                                evalString = evalString.replace(groupAttr, f"'{str(row[Attributes[groupAttr]])}'")
+                        if eval(evalString.replace('=', '==')): #recalc sum
                             sum = int(row[Attributes[groupingAttribute]])
                             MF_Struct[key][agg] += sum
                     elif aggregateFunc == 'avg':
@@ -201,8 +217,11 @@ for i in range(phi['n'] + 1):
                                     int(val)
                                     evalString = evalString.replace(s, str(val))
                                 except:
-                                    evalString = evalString.replace(s, f"'{val}")
-                        if eval(evalString.replace('=', '==')):#recalc avg
+                                    evalString = evalString.replace(s, f"'{val}'")
+                        for groupAttr in Attributes:
+                            if (groupAttr in evalString):
+                                evalString = evalString.replace(groupAttr, f"'{str(row[Attributes[groupAttr]])}'")
+                        if eval(evalString.replace('=', '==')): #recalc avg
                             sum += int(row[Attributes[groupingAttribute]])
                             count += 1
                             MF_Struct[key][agg] = {'sum': sum, 'count': count, 'avg': (sum / count)}
@@ -215,7 +234,10 @@ for i in range(phi['n'] + 1):
                                     int(val)
                                     evalString = evalString.replace(s, str(val))
                                 except:
-                                    evalString = evalString.replace(s, f"'{val}")
+                                    evalString = evalString.replace(s, f"'{val}'")
+                        for groupAttr in phi['V']:
+                            if (groupAttr in evalString):
+                                evalString = evalString.replace(groupAttr, f"'{str(row[Attributes[groupAttr]])}'")
                         if eval(evalString.replace('=', '==')):#recalc min
                             min = int(MF_Struct[key][agg])
                             if (int(row[Attributes[groupingAttribute]]) < min):
@@ -229,7 +251,10 @@ for i in range(phi['n'] + 1):
                                     int(val)
                                     evalString = evalString.replace(s, str(val))
                                 except:
-                                    evalString = evalString.replace(s, f"'{val}")
+                                    evalString = evalString.replace(s, f"'{val}'")
+                        for groupAttr in phi['V']:
+                            if (groupAttr in evalString):
+                                evalString = evalString.replace(groupAttr, f"'{str(row[Attributes[groupAttr]])}'")
                         if eval(evalString.replace('=', '==')):
                             max = int(MF_Struct[key][agg])
                             if (int(row[Attributes[groupingAttribute]]) > max):
@@ -243,55 +268,53 @@ for i in range(phi['n'] + 1):
                                     int(val)
                                     evalString = evalString.replace(s, str(val))
                                 except:
-                                    evalString = evalString.replace(s, f"'{val}")
+                                    evalString = evalString.replace(s, f"'{val}'")
+                        for groupAttr in phi['V']:
+                            if (groupAttr in evalString):
+                                evalString = evalString.replace(groupAttr, f"'{str(row[Attributes[groupAttr]])}'")
                         if eval(evalString.replace('=', '==')):
                             MF_Struct[key][agg] += 1
-#set up output
+# Setting up output
+df = pd.DataFrame(None, None, phi['S'])
 outputRow = ''
-for elem in phi['S']:
-    outputRow += elem + "\t"
-print(outputRow)
-outputRow = ''
-#every row in the MF_Struct should rows for all grouping vars + 1 bc group 0
-#each row has columns initialized for its aggregates
+# Every row in the MF_Struct should rows for all grouping vars + 1 bc group 0
+# Each row has columns initialized for its aggregates
 for row in MF_Struct: #checking having condition AND doing output
     evalString = ''
-    if phi['G'] != '': #having condition exists
+    if phi['G'] != '': # Having condition exists
         for s in phi['G'].split(' '):
             if s not in ['>', '>=', '<', '<=', '==', 'and', 'or', 'not', '*', '/', '+', '-']:
-                try: #is number?
-                    int(s)
+                try: # Is number?
+                    float(s)
                     evalString += s
                 except: #is an aggregate
-                    if ((len(s.split('_')) > 1) and (s.split('_')[1] == 'avg')):
+                    if ((len(s.split('_')) > 1) and (s.split('_')[1] == 'avg') or s.split('_')[0] == 'avg'):
                         evalString += str(MF_Struct[row][s]['avg'])
                     else:
                         evalString += str(MF_Struct[row][s])
             else: #is operator for comparison
-                evalString += f' {s}'
+                evalString += f' {s} '
         if (eval(evalString.replace('=', '=='))):
             output_info = []
             for elem in phi['S']:
-                if ((len(elem.split('_')) > 1) and (elem.split('_')[1] == 'avg')):
-                    output_info += [str(MF_Struct[row][elem]['avg'])]
+                if ((len(elem.split('_')) > 1) and (elem.split('_')[1] == 'avg' or elem.split('_')[0] == 'avg')):
+                    output_info += [MF_Struct[row][elem]['avg']]
                 else:
-                    output_info += [str(MF_Struct[row][elem])]
-            for elem in phi['S']:
-                outputRow += elem + "\t"
-            print(outputRow)
-            outputRow = ''
+                    output_info += [MF_Struct[row][elem]]
+            df.loc[len(df)] = output_info
+            output_info = ''
         evalString = ''
-    else:
+    else: # No having condition -> only output
         output_info = []
         for elem in phi['S']:
-            if ((len(elem.split('_')) > 1) and (elem.split('_')[1] == 'avg')):
-                output_info += [str(MF_Struct[row][elem]['avg'])]
+            if ((len(elem.split('_')) > 1) and (elem.split('_')[1] == 'avg' or elem.split('_')[0] == 'avg')):
+                output_info += [MF_Struct[row][elem]['avg']]
             else:
-                output_info += [str(MF_Struct[row][elem])]
-        for elem in phi['S']:
-            outputRow += elem + "\t"
-        print(outputRow)
-        outputRow = ''
+                output_info += [MF_Struct[row][elem]]
+        df.loc[len(df)] = output_info
+        output_info = ''
+print(df.to_string(index=False))
+df.to_csv("result.csv")
 """
 
 def mf_query():
@@ -308,9 +331,12 @@ if __name__ == "__main__":
         os.remove("query_output.py")
   
     txt_file = 'phiOperator.txt'
-    option = input(f"Do you want to read from {txt_file}? [Y/N] ")
+    option = input(f"Do you want to read from text file? [Y/N] ")
     while True:
         if option in {"y","Y","yes","Yes"}:
+            while not os.path.exists(txt_file):
+                txt_file = input(f"""Cannot find phiOperator.txt file in current directory. 
+                                    Please enter the file location: """)
             getPhiValues(txt_file)
             break
         elif option in {"n","N","no","No"}:
