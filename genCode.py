@@ -2,6 +2,7 @@ import sys
 import subprocess
 from tokenize import group
 from importlib import util
+import os
 
 phi = {"S" : [],
        "n" : "",
@@ -66,18 +67,66 @@ def getUserInput():
         phi["sig"].append(val.strip())
     val = input("Enter the having condition (G): ")
     phi["G"] = val
-    with open('query_output.py', 'a') as mfQueryFile:
-        mfQueryFile.write("phi =")
-        mfQueryFile.write(str(phi))
-        mfQueryFile.write("\n")
-        mfQueryFile.close()
                 
 # Print out Phi to see            
 def printPhi():
     for i in phi.items():
         print(f"{i[0]} : {i[1]}")
 
-mf_algo = """
+mf_algo ="""
+#add imports and somehow send values and phi into this code
+import psycopg2
+import argparse
+
+DATABASE_USERNAME = ""
+DATABASE_PASSWORD = ""
+DATABASE_SERVER = "localhost"
+DATABASE_NAME = "postgres"
+code_file = "code.py"
+
+# Establishes a connection to the database using psycopg2 and returns the values of the query
+def commit_query(query,result):
+    values = None
+    connection = ""
+    try:
+        connection = psycopg2.connect(user= DATABASE_USERNAME,
+                                    password= DATABASE_PASSWORD ,
+                                    host= DATABASE_SERVER,
+                                    database= DATABASE_NAME)
+        cursor = connection.cursor()
+        cursor.execute(query)
+        if cursor.description != None: values = cursor.fetchall()
+        connection.commit()
+        print(result) 
+        connection.close() 
+    except (Exception, psycopg2.Error) as error:
+        print("Error while connecting to PostgreSQL: ", error)
+        if(connection):
+            connection.close() 
+        exit()
+    return values
+
+# Run the file: python "e:/main.py" username password [optional] server_address database_name
+# Example: python "e:/main.py" postgres pwd [localhost postgres]
+parser = argparse.ArgumentParser(description="Database Credentials")
+parser.add_argument("database_username", help="Database Authentication Username")
+parser.add_argument("database_password", help="Database Authentication Password")
+parser.add_argument("-s", "--server_address", help="Database Server Address")
+parser.add_argument("-d", "--database_name", help="Database Name")
+args = parser.parse_args()
+
+DATABASE_USERNAME = args.database_username
+DATABASE_PASSWORD = args.database_password
+
+if args.server_address:
+    DATABASE_SERVER = args.server_address
+
+if args.database_name:
+    DATABASE_NAME = args.database_name
+
+# Gets all the rows from the sales database by running the query below
+values = commit_query("SELECT * from sales", "Getting all entries in sales table")
+
 Attributes = {
     'cust' : 0,
     'prod' : 1,
@@ -255,6 +304,9 @@ if __name__ == "__main__":
     required = {'psycopg2', 'pandas'}
     for i in required: checkModule(i)  
     
+    if os.path.exists("query_output.py"):
+        os.remove("query_output.py")
+  
     txt_file = 'phiOperator.txt'
     option = input(f"Do you want to read from {txt_file}? [Y/N] ")
     while True:
