@@ -291,7 +291,7 @@ for row in MF_Struct: #checking having condition AND doing output
                     float(s)
                     evalString += s
                 except: #is an aggregate
-                    if ((len(s.split('_')) > 1) and (s.split('_')[1] == 'avg') or elem.split('_')[0] == 'avg'):
+                    if ((len(s.split('_')) > 1) and (s.split('_')[1] == 'avg') or s.split('_')[0] == 'avg'):
                         evalString += str(MF_Struct[row][s]['avg'])
                     else:
                         evalString += str(MF_Struct[row][s])
