@@ -5,7 +5,7 @@ Program will produce embedded SQL code that will properly query against sales ta
 ## Setup & Running
 1. Run genCode.py, this will generate the code in a 'query_output.py' file and download the proper modules needed.
 
-2. Run runCode.py, 
+2. Run the generated file, 
    ```
-   python .\runCode [db_username] [db_pwd]  -s [server_address] -d [db_name]
+   python .\query_output [db_username] [db_pwd]  -s [server_address] -d [db_name]
    ```

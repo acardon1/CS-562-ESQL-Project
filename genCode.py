@@ -80,10 +80,12 @@ mf_algo ="""
 import psycopg2
 import argparse
 import pandas as pd
+
 DATABASE_USERNAME = ""
 DATABASE_PASSWORD = ""
 DATABASE_SERVER = "localhost"
 DATABASE_NAME = "postgres"
+
 # Establishes a connection to the database using psycopg2 and returns the values of the query
 def commit_query(query,result):
     values = None
@@ -185,11 +187,13 @@ for i in range(phi['n'] + 1):
             aggregateFunc = agg.split('_')[1]
             groupingAttribute = agg.split('_')[2]
             if (i == int(groupingVariable)):
+            
                 for row in values:
                     key = ''
                     for attribute in phi['V']:
                         key += f'{str(row[Attributes[attribute]])}'
                     # Using strings with eval() method, replace grouping variables with actual values
+                    
                     if aggregateFunc == 'sum':
                         evalString = phi['sig'][i-1]
                         for s in predParts[i-1]:
@@ -274,11 +278,13 @@ for i in range(phi['n'] + 1):
                                 evalString = evalString.replace(groupAttr, f"'{str(row[Attributes[groupAttr]])}'")
                         if eval(evalString.replace('=', '==')):
                             MF_Struct[key][agg] += 1
+
 # Setting up output
 df = pd.DataFrame(None, None, phi['S'])
 outputRow = ''
 # Every row in the MF_Struct should rows for all grouping vars + 1 bc group 0
 # Each row has columns initialized for its aggregates
+
 for row in MF_Struct: #checking having condition AND doing output
     evalString = ''
     if phi['G'] != '': # Having condition exists
@@ -304,7 +310,9 @@ for row in MF_Struct: #checking having condition AND doing output
             df.loc[len(df)] = output_info
             output_info = ''
         evalString = ''
+
     else: # No having condition -> only output
+
         output_info = []
         for elem in phi['S']:
             if ((len(elem.split('_')) > 1) and (elem.split('_')[1] == 'avg' or elem.split('_')[0] == 'avg')):
@@ -324,8 +332,8 @@ def mf_query():
     
 if __name__ == "__main__":
     # Installs and imports the modules    
-    required = {'psycopg2', 'pandas'}
-    for i in required: checkModule(i)  
+    #required = {'psycopg2', 'pandas'}
+    #for i in required: checkModule(i)  
     
     if os.path.exists("query_output.py"):
         os.remove("query_output.py")
