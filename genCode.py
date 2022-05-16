@@ -43,6 +43,11 @@ def getPhiValues(txt_file):
                         phi[keys[count]] = i.strip()
                     else:    
                         phi[keys[count]].append(i.strip())
+    with open('query_output.py', 'a') as mfQueryFile:
+        mfQueryFile.write("phi =")
+        mfQueryFile.write(str(phi))
+        mfQueryFile.write("\n")
+        mfQueryFile.close()
 
 # Gets the user input instead of reading txt file                       
 def getUserInput():
@@ -259,3 +264,4 @@ if __name__ == "__main__":
         else:
             option = input(f"Invalid Input! Do you want to read from {txt_file}? [Y/N] ")
     printPhi()
+    mf_query()
